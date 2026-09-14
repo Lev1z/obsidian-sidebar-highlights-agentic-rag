@@ -1,230 +1,221 @@
-# Sidebar Highlights
+# Sidebar Highlights · Agentic RAG
 
-Simplify and streamline how you work with highlights, comments, and tasks in Obsidian. This plugin helps you capture, organize, and navigate your thoughts across your entire vault with advanced search capabilities, a flexible comment system, and comprehensive task management.
+在 Obsidian 侧边栏中统一管理高亮、批注、集合与任务，并通过可选的 Agentic RAG 助手，结合本地 Markdown 笔记解释高亮内容。
+
+Manage highlights, comments, collections, and tasks from one Obsidian sidebar. The optional Agentic RAG assistant can explain highlighted text with context retrieved from your local Markdown notes.
 
 <p align="center">
-  <picture>
-    <img src="https://github.com/user-attachments/assets/eebaa062-adee-4bda-b3ce-bdc0a536ecaf" alt="Preview">
-  </picture>
+  <img src="https://github.com/user-attachments/assets/eebaa062-adee-4bda-b3ce-bdc0a536ecaf" alt="Sidebar Highlights preview">
 </p>
 
-### **Flexible Comment System using Obsidian's Footnote Syntax**
-- **Standard comments**: `==highlight==[^1]` with `[^1]: Your comment`
-- **Inline comments**: `==highlight==^[immediate comment]`
-- **Native Obsidian comments**: `%%standalone comment%%` will also appear in the sidebar
-- **Mixed commenting**: Combine different comment types on the same highlight
+> 本仓库在 Sidebar Highlights 的高亮管理能力上加入了 Agentic RAG 工作流，适合学习和实验本地知识库检索、工具调用与 Obsidian 插件开发。
+>
+> This repository extends Sidebar Highlights with an Agentic RAG workflow for experimenting with local knowledge retrieval, tool calling, and Obsidian plugin development.
 
-### **Comprehensive Task Management**
-- **Smart task detection** automatically scans vault for all tasks (`- [ ]` and `- [x]`)
-- **Natural language dates** like "tomorrow", "next Monday", or "+3d" for due dates
-- **Intelligent grouping** by due date with contextual labels (Today, Tomorrow, day names, months, years)
-- **Task filtering** by completion status, flagged tasks, or due dates (Overdue, Due Today, etc.)
-- **Task context** shows indented content and sub-bullets below tasks
-- **Flag tasks** for priority marking and quick filtering
+## 功能概览 / Highlights
 
-### **Visual Organization**
-- **Smart grouping** by color, date, folder, collection, filename, or due date
-- **Collections system** to organize highlights across multiple files
-- **Display modes** to save and restore different display configurations
-- **Clean sidebar interface** with optional toolbar and action hiding
-- **Color-coded highlights**: Gold, Red, Teal, Blue, and Green
-- **International support**: Full Chinese (Simplified) localization
+### 高亮与批注 / Highlights and comments
 
-### **Seamless Integration**
-- **Works directly with Obsidian's markdown syntax** - no custom formats required
-- **Command palette live updates** to navigate to collections as you create them
-- **Click sidebar highlights and comments** to navigate directly to their location
-- **Real-time updates** as edits are made in the editor
+- 使用 Obsidian 原生 `==highlight==` 语法创建和管理高亮
+- 支持标准脚注、行内脚注和 `%% native comments %%`
+- 同一条高亮可关联多种批注，并可从侧边栏跳回原文
+- 支持自定义高亮颜色、标签、排序和筛选
 
-### **Advanced Search & Filtering**
-- **Smart search** with logical operators (`AND`, `OR`) and parentheses for complex queries
-- **Tag filters** using `#tag` syntax with autocomplete support
-- **Collection filters** using `@collection` syntax 
-- **Exclude filters** with `-#tag` and `-@collection` for precise filtering
-- **Real-time search preview** showing exactly how your query will be interpreted
-- **International support** for Unicode characters in tags and search
+### 集合与视图 / Collections and views
 
-## Getting Started
+- 跨文件组织高亮集合
+- Current Note、All Notes、Collections 和可选 Tasks 标签页
+- 按颜色、标签、集合、文件名、文件夹或日期分组
+- 保存 Display Mode，并从命令面板快速恢复视图配置
 
-### Creating Your First Highlight
+### 任务面板 / Tasks dashboard
 
-**Method 1: Right-click menu (Easiest)**
-1. Select any text in a markdown file
-2. Right-click and choose "Create highlight"
-3. Your text is now highlighted and appears in the sidebar!
+- 扫描整个仓库中的 `- [ ]` 与 `- [x]` 任务
+- 支持任务完成状态、优先标记、到期日和上下文预览
+- 提供 Today、Tomorrow、星期、月份和年份等日期分组
+- 支持自然语言日期建议，例如 `tomorrow`、`next Monday` 和相对天数
 
-**Method 2: Command palette**
-- Press `Ctrl/Cmd + P` → type "Toggle highlight"
+### 高级搜索 / Advanced search
 
-**Method 3: Manual syntax**
-- Type: `==your highlighted text==`
+- 文本搜索，以及 `#tag` 和 `@collection` 过滤
+- `AND`、`OR` 和括号组合
+- 使用 `-#tag`、`-@collection` 排除结果
+- 实时查询解析预览和 Unicode 内容支持
 
-**Pro tip**: Use a hotkey for highlights.
+示例 / Examples:
 
-### The Three Comment Types
+```text
+home
+#important
+@work
+#urgent AND @project
+(#critical OR #high) AND security
+home #important -@completed
+```
 
-#### 1. **Standard Comments**
-Perfect for detailed comments that don't clutter your text:
+## Agentic RAG 助手 / Agentic RAG assistant
+
+在高亮的批注窗口切换到 **Ask AI**，即可针对当前高亮提问。助手会在最多 6 个步骤内决定是否调用本地工具，然后生成 Short 或 Medium 长度的回答。
+
+Switch to **Ask AI** in a highlight's comment dialog to ask about the selected text. The assistant can perform up to six tool-calling steps before producing a Short or Medium response.
+
+工作流 / Workflow:
+
+```text
+高亮文本 + 用户问题
+        ↓
+分析并生成检索词
+        ↓
+search_notes → 本地关键词评分与片段检索
+        ↓
+get_note_content → 按需读取相关笔记
+        ↓
+回答 + 3 个前置知识点
+```
+
+核心能力 / Core capabilities:
+
+- 本地优先：检索和相关性评分在 Obsidian 仓库内完成
+- 两个工具：`search_notes` 检索片段，`get_note_content` 读取指定笔记
+- 可观察执行过程：界面展示 Thought、Action、Observation 状态与历史记录
+- Short / Medium 两种回答长度，并生成可继续追问的前置知识点
+- 未配置 API 或调用失败时，返回确定性的本地检索兜底结果
+
+技术实现 / Implementation:
+
+- TypeScript + Obsidian API
+- LangChain.js `PromptTemplate`
+- OpenAI-compatible `/chat/completions` endpoint
+- Lightweight JSON tool-calling loop, up to 6 iterations
+- Local keyword scoring and context extraction; no vector database required
+
+## 安装 / Installation
+
+该分支尚未发布到 Obsidian Community Plugins，可使用以下方式安装。
+
+### 从源码构建 / Build from source
+
+要求 / Requirements: Node.js 18+、npm、Obsidian 1.8.10+。
+
+```bash
+git clone https://github.com/Lev1z/obsidian-sidebar-highlights-agentic-rag.git
+cd obsidian-sidebar-highlights-agentic-rag
+npm install
+npm run build
+```
+
+然后将以下文件复制到你的仓库目录：
+
+```text
+<vault>/.obsidian/plugins/sidebar-highlights/
+├── main.js
+├── manifest.json
+└── styles.css
+```
+
+重启 Obsidian，进入 **Settings → Community plugins**，启用 **Sidebar Highlights**。
+
+For development, clone this repository directly into your vault's `.obsidian/plugins/` directory and run `npm run dev` for watch mode.
+
+## 快速开始 / Quick start
+
+### 1. 创建高亮 / Create a highlight
+
+- 在 Markdown 笔记中选择文本，右键选择 **Create highlight**；或
+- 打开命令面板，运行 **Create highlight from selection**；或
+- 直接输入 `==your highlighted text==`。
+
+### 2. 添加批注 / Add a comment
+
+标准脚注 / Standard footnote:
+
 ```markdown
 ==Important concept==[^1]
 
-[^1]: This is my detailed explanation of why this concept matters
+[^1]: A detailed explanation
 ```
 
-#### 2. **Inline Comments**
-Great for immediate thoughts without jumping around:
+行内脚注 / Inline footnote:
+
 ```markdown
-==Key insight==^[This changed my perspective completely!]
+==Key insight==^[A quick note]
 ```
 
-#### 3. **Native Comments** (Standalone)
-Use anywhere in your document for general thoughts:
+原生注释 / Native comment:
+
 ```markdown
-%% Remember to revisit this section during review %%
+%% Remember to revisit this section %%
 ```
 
-**Pro tip**: This plugin supports mixed footnote types! For example: `==text==[^1]^[quick note]`
+### 3. 使用侧边栏 / Use the sidebar
 
-### Advanced Search
+点击左侧 Ribbon 中的高亮图标，或从命令面板运行 **Toggle**。侧边栏中的高亮、批注和任务均可点击跳转到对应 Markdown 位置。
 
-The search bar supports powerful queries:
+Tasks 标签默认隐藏。如需启用，请前往 **Settings → Sidebar Highlights → Views → Show Tasks tab**。
 
-**Basic examples:**
-- `home` - Find all highlights containing "home"
-- `#important` - Show only highlights tagged with #important
-- `@work` - Filter by "work" collection
+## AI 配置 / AI setup
 
-**Advanced queries:**
-- `#urgent AND @project` - Must have both tag and collection
-- `#bug OR #feature` - Either tag works
-- `(#critical OR #high) AND security` - Complex logic with parentheses
-- `-#archived` - Exclude highlights tagged with #archived
-- `home #important -@completed` - Text + include tag + exclude collection
+打开 **Settings → Sidebar Highlights**，填写：
 
-**Auto-complete**: Start typing `#` or `@` and use ↑↓ arrows to navigate suggestions.
+- **API Key**：OpenAI 兼容服务的密钥
+- **Model**：模型名称，默认 `gpt-4o-mini`
+- **Base URL**：接口根地址，默认 `https://api.openai.com/v1`
 
-### Using the Sidebar
+点击 **Test AI Connection → Run Test** 验证配置。Base URL 后会自动拼接 `/chat/completions`，因此请填写 API 根地址，不要填写完整的请求路径。
 
-2. **Navigate**: Four tabs available:
-   - **Current Note**: See highlights from active file
-   - **All Notes**: Browse your entire vault
-   - **Collections**: Organized highlight groups
-   - **Tasks**: Manage tasks from across your vault (enable in Settings)
-3. **Click to jump**: Any highlight or task takes you directly to its location
-4. **Search & filter**: Use the powerful search and filter options
-5. **Group & organize**: Sort by color, date, folder, collection, or due date
+配置完成后，在任意高亮的批注对话框中打开 **Ask AI**，输入问题并选择 Short 或 Medium。
 
-### Collections - Organize Highlights Across Files
+## 命令 / Commands
 
-Collections help you group related highlights from different notes:
+- **Create highlight from selection**：将选中文本转换为高亮
+- **Toggle**：打开或关闭侧边栏
+- **Go to &lt;collection&gt;**：跳转到指定集合
+- **Apply display mode: &lt;name&gt;**：应用已保存的显示模式
 
-1. **Create**: Go to Collections tab → "New Collection"
-2. **Add highlights**: Click the collection button on any highlight
-3. **Browse**: Click collection cards to see contents
-4. **Quick access**: Use Command Palette → "Go to [Collection Name]"
+可以在 **Settings → Hotkeys** 中为命令绑定快捷键。
 
-### Tasks - Manage Your To-Dos
+## 隐私说明 / Privacy
 
-The Tasks tab provides a unified view of all tasks in your vault:
+- 普通的高亮、批注、集合、任务和搜索功能均在本地运行。
+- 使用 Ask AI 时，当前高亮、用户问题、工具执行记录，以及检索到的笔记片段或按需读取的笔记内容会发送到你配置的模型服务。
+- 插件默认不会上传整个仓库；本地检索当前最多扫描 200 个 Markdown 文件，再选择相关内容参与回答。
+- API Key 保存在 Obsidian 插件设置数据中，请自行确保设备和仓库配置目录安全。
 
-1. **Enable**: Go to Settings → Views → Show Tasks tab
-2. **Add dates**: Click the calendar icon to set due dates with natural language ("tomorrow", "next week", etc.)
-3. **Flag tasks**: Mark important tasks for quick filtering
-4. **Group by date**: Organize tasks with smart labels (Today, Tomorrow, day names, month names, years)
-5. **Filter**: Show only overdue, due today, flagged, or incomplete tasks
-6. **Click to edit**: Any task takes you directly to its location in the file
+Before enabling AI features, review the privacy policy and data-retention terms of your chosen API provider.
 
-**Pro tip**: Tasks automatically show their context (indented content below them) for better understanding.
+## 开发 / Development
 
-### Display Modes - Save Your View Preferences
+```bash
+npm install
+npm run dev      # watch mode
+npm run build    # type-check + production bundle
+npm test         # Jest test suite
+```
 
-Display Modes let you save and quickly switch between different display configurations:
+主要文件 / Key files:
 
-1. **Save a mode**: Set up your preferred view → Settings → Display Modes → Save Current Display
-2. **Apply modes**: Use the Command Palette → "Apply display mode: [Mode Name]"
-3. **Update modes**: Make changes and update existing modes with new settings
-4. **Quick switching**: Perfect for different workflows (Reading Mode, Full View, etc.)
+```text
+main.ts                         Plugin entry, settings, and commands
+src/services/AIService.ts       Retrieval and agentic tool-calling workflow
+src/views/sidebar-view.ts       Sidebar and Ask AI interface
+src/managers/task-manager.ts    Vault-wide task management
+src/utils/search-parser.ts      Advanced search parser
+styles.css                      Plugin styles
+```
 
-### Color Your Highlights
+## 已知限制 / Known limitations
 
-**Change colors**: Hover over the side of a highlight to view the color picker.
+- 仅支持 Markdown 笔记，不支持 PDF 高亮。
+- Tasks 标签默认关闭，需要在设置中手动启用。
+- 本地检索使用关键词相关性评分，不包含向量数据库或 embedding 索引。
+- AI 服务必须兼容 OpenAI Chat Completions 请求格式。
 
-## Installation
+## 致谢 / Credits
 
-### Option 1: Community Plugin (Recommended)
-1. Open Obsidian Settings
-2. Go to **Community Plugins** → **Browse**
-3. Search for "Sidebar Highlights"
-4. Click **Install** and then **Enable**
+本项目基于 [trevware/obsidian-sidebar-highlights](https://github.com/trevware/obsidian-sidebar-highlights) 扩展，感谢原作者和贡献者提供完整的高亮、批注、集合及任务管理基础。
 
-### Option 2: Manual Installation
-1. Download the latest release from GitHub
-2. Extract to your vault's `.obsidian/plugins/sidebar-highlights/` folder
-3. Reload Obsidian or restart the app
-4. Enable the plugin in **Settings** → **Community Plugins**
+This project extends [trevware/obsidian-sidebar-highlights](https://github.com/trevware/obsidian-sidebar-highlights). Thanks to the original author and contributors.
 
-## Settings & Customization
+## License
 
-Access plugin settings via **Settings** → **Sidebar Highlights**:
-
-**Display:**
-- **Use inline footnotes by default**: Toggle between footnote styles
-- **Hide toolbar/actions**: Clean up the interface
-- **Show timestamps**: Display creation times on highlights
-- **Show filenames**: Show note titles in multi-file views
-
-**Views:**
-- **Show Tasks tab**: Enable the Tasks tab in the sidebar
-
-**Tasks:**
-- **Show completed tasks**: Toggle visibility of completed tasks
-- **Show task context**: Display indented content below tasks
-- **Task date format**: Choose how dates appear (YYYY-MM-DD, MM/DD/YYYY, etc.)
-
-**Display Modes:**
-- **Save current display**: Create named presets for different viewing configurations
-- **Manage modes**: Update, rename, or delete existing display modes
-
-## Keyboard Shortcuts & Commands
-
-- **Toggle sidebar**: Open/close the highlights panel
-- **Create highlight**: Convert selected text to highlight
-- **Go to [Collection]**: Jump directly to specific collections
-- **Apply display mode**: Quickly switch between saved display configurations
-
-*Tip: Set custom hotkeys in Obsidian's Hotkeys settings*
-
-## Pro Tips & Tricks
-
-- **Quick footnotes**: Enable "Use inline footnotes by default" for faster note-taking
-- **Take advantage of search**: Use `(#urgent OR #important) AND -#completed` for complex filtering
-- **Color coding system**: Develop your own color meanings for consistent organization
-- **Collection workflows**: Create collections for projects, topics, or review cycles
-- **Natural language dates**: Use "tomorrow", "next Monday", "+3d", or "in 2 weeks" for quick task scheduling
-- **Display modes for workflows**: Save different modes for reading, reviewing, or editing sessions
-- **Smart date grouping**: Group tasks by due date to see what's coming up (Today, Tomorrow, day names, months)
-
-## Troubleshooting & FAQ
-
-**Q: Can I use this with PDF files?**
-A: PDF highlights aren't supported.
-
-**Q: Why can't I jump to highlights from within Reading View?**
-A: Jumping to highlights from within Reading View is not currently supported.
-
-**Q: Where is the Tasks tab?**
-A: The Tasks tab is hidden by default. Enable it in Settings → Views → Show Tasks tab.
-
-### Need More Help?
-
-- Report bugs or request features on [GitHub Issues](https://github.com/trevware/obsidian-sidebar-highlights/issues)
-
-## ❤️ Support the Project
-
-If this plugin enhances your Obsidian experience:
-- ☕ [Buy me a coffee](https://buymeacoffee.com/trevware) to fuel development
-- ⭐ Star the project on GitHub
-
----
-
-*Made with ❤️ for the Obsidian community*
+本仓库遵循 [GNU General Public License v3.0](LICENSE)。
