@@ -1,18 +1,25 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.5",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "obsidian-sidebar-highlights-agentic-rag",
+	"version": "1.36.0",
+	"description": "Manage Obsidian highlights, comments, collections, and tasks with an optional local-first Agentic RAG assistant.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+		"check": "npm run build && npm test -- --runInBand",
 		"test": "jest",
+		"test:coverage": "jest --coverage --runInBand",
 		"test:watch": "jest --watch",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
-	"keywords": [],
-	"author": "",
-	"license": "MIT",
+	"keywords": [
+		"obsidian",
+		"highlights",
+		"rag",
+		"agentic-ai"
+	],
+	"author": "Lev1z and Sidebar Highlights contributors",
+	"license": "GPL-3.0-only",
 	"devDependencies": {
 		"@langchain/core": "^0.3.57",
 		"@types/jest": "^29.5.11",
