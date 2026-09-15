@@ -12,6 +12,7 @@ export interface RetrievalCaseResult {
     precisionAtK: number;
     recallAtK: number;
     reciprocalRank: number;
+    normalizedDiscountedCumulativeGainAtK: number;
 }
 
 export interface RetrievalEvaluationSummary {
@@ -21,6 +22,7 @@ export interface RetrievalEvaluationSummary {
     meanPrecisionAtK: number;
     meanRecallAtK: number;
     meanReciprocalRank: number;
+    meanNormalizedDiscountedCumulativeGainAtK: number;
     cases: RetrievalCaseResult[];
 }
 
@@ -46,6 +48,13 @@ export async function evaluateRetrieval(
         const relevant = new Set(item.relevantFilePaths);
         const relevantRetrieved = retrievedFilePaths.filter(path => relevant.has(path));
         const firstRelevantIndex = retrievedFilePaths.findIndex(path => relevant.has(path));
+        const discountedCumulativeGain = retrievedFilePaths.reduce((sum, path, index) =>
+            sum + (relevant.has(path) ? 1 / Math.log2(index + 2) : 0), 0);
+        const idealResultCount = Math.min(relevant.size, k);
+        let idealDiscountedCumulativeGain = 0;
+        for (let index = 0; index < idealResultCount; index++) {
+            idealDiscountedCumulativeGain += 1 / Math.log2(index + 2);
+        }
 
         results.push({
             id: item.id,
@@ -54,7 +63,10 @@ export async function evaluateRetrieval(
             hitAtK: relevantRetrieved.length > 0 ? 1 : 0,
             precisionAtK: relevantRetrieved.length / k,
             recallAtK: relevantRetrieved.length / relevant.size,
-            reciprocalRank: firstRelevantIndex === -1 ? 0 : 1 / (firstRelevantIndex + 1)
+            reciprocalRank: firstRelevantIndex === -1 ? 0 : 1 / (firstRelevantIndex + 1),
+            normalizedDiscountedCumulativeGainAtK: idealDiscountedCumulativeGain === 0
+                ? 0
+                : discountedCumulativeGain / idealDiscountedCumulativeGain
         });
     }
 
@@ -68,6 +80,7 @@ export async function evaluateRetrieval(
         meanPrecisionAtK: mean(item => item.precisionAtK),
         meanRecallAtK: mean(item => item.recallAtK),
         meanReciprocalRank: mean(item => item.reciprocalRank),
+        meanNormalizedDiscountedCumulativeGainAtK: mean(item => item.normalizedDiscountedCumulativeGainAtK),
         cases: results
     };
 }

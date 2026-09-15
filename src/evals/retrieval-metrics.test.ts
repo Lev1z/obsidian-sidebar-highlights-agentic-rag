@@ -19,7 +19,9 @@ describe('evaluateRetrieval', () => {
         expect(summary.meanPrecisionAtK).toBeCloseTo(0.5);
         expect(summary.meanRecallAtK).toBe(1);
         expect(summary.meanReciprocalRank).toBeCloseTo(0.75);
+        expect(summary.meanNormalizedDiscountedCumulativeGainAtK).toBeCloseTo(0.7753, 4);
         expect(summary.cases[0].reciprocalRank).toBe(0.5);
+        expect(summary.cases[0].normalizedDiscountedCumulativeGainAtK).toBeCloseTo(0.6309, 4);
     });
 
     it('scores a miss as zero', async () => {
@@ -33,6 +35,7 @@ describe('evaluateRetrieval', () => {
         expect(summary.meanPrecisionAtK).toBe(0);
         expect(summary.meanRecallAtK).toBe(0);
         expect(summary.meanReciprocalRank).toBe(0);
+        expect(summary.meanNormalizedDiscountedCumulativeGainAtK).toBe(0);
     });
 
     it('rejects invalid K values', async () => {
