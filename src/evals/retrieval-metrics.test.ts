@@ -38,6 +38,16 @@ describe('evaluateRetrieval', () => {
         expect(summary.meanNormalizedDiscountedCumulativeGainAtK).toBe(0);
     });
 
+    it('uses Top-5 when K is omitted', async () => {
+        const summary = await evaluateRetrieval(
+            [{ id: 'default-k', query: 'query', relevantFilePaths: ['target.md'] }],
+            async () => ['a.md', 'b.md', 'c.md', 'd.md', 'target.md']
+        );
+
+        expect(summary.k).toBe(5);
+        expect(summary.meanReciprocalRank).toBe(0.2);
+    });
+
     it('rejects invalid K values', async () => {
         await expect(evaluateRetrieval(cases, async () => [], 0)).rejects.toThrow('positive integer');
         await expect(evaluateRetrieval(cases, async () => [], 1.5)).rejects.toThrow('positive integer');

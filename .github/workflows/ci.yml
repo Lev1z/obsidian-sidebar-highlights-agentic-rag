@@ -27,5 +27,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build, test, and enforce coverage gates
+      - name: Build, test, enforce coverage, and run offline evaluation
         run: npm run ci

@@ -8,7 +8,8 @@ module.exports = {
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
-    '!src/**/*.test.ts'
+    '!src/**/*.test.ts',
+    '!src/evals/run-retrieval-comparison.ts'
   ],
   coverageThreshold: {
     './src/services/OpenAICompatibleClient.ts': {
@@ -22,6 +23,18 @@ module.exports = {
       functions: 100,
       lines: 100,
       statements: 100
+    },
+    './src/services/retrieval/keyword-retrieval.ts': {
+      branches: 75,
+      functions: 100,
+      lines: 90,
+      statements: 90
+    },
+    './src/services/retrieval/bm25-retrieval.ts': {
+      branches: 85,
+      functions: 100,
+      lines: 95,
+      statements: 90
     }
   },
   transform: {

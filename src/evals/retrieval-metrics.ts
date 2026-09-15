@@ -64,9 +64,7 @@ export async function evaluateRetrieval(
             precisionAtK: relevantRetrieved.length / k,
             recallAtK: relevantRetrieved.length / relevant.size,
             reciprocalRank: firstRelevantIndex === -1 ? 0 : 1 / (firstRelevantIndex + 1),
-            normalizedDiscountedCumulativeGainAtK: idealDiscountedCumulativeGain === 0
-                ? 0
-                : discountedCumulativeGain / idealDiscountedCumulativeGain
+            normalizedDiscountedCumulativeGainAtK: discountedCumulativeGain / idealDiscountedCumulativeGain
         });
     }
 

@@ -187,26 +187,32 @@ Before enabling AI features, review the privacy policy and data-retention terms 
 ## 开发 / Development
 
 ```bash
-npm install
+npm ci
 npm run dev      # watch mode
 npm run build    # type-check + production bundle
 npm test         # Jest test suite
 npm run test:coverage   # coverage report + critical-file gates
-npm run eval:retrieval  # deterministic local retrieval benchmark
+npm run eval:retrieval  # compare keyword baseline with BM25 on the frozen test split
+npm run eval:retrieval:report  # refresh docs/retrieval-evaluation.md
 ```
 
 ### 质量基线 / Quality baseline
 
 - CI 在每次推送到 `main` 和每个 Pull Request 上执行生产构建、全部测试及关键文件覆盖率门禁。
-- `npm run eval:retrieval` 使用固定 Markdown 知识库和标注查询计算 Hit Rate@3、Recall@3 与 MRR。
+- `npm run eval:retrieval` 在 50 篇固定 Markdown 笔记和 25 条冻结测试查询上，对比当前关键词基线与 BM25 标题加权候选方案。
+- 评测计算 Hit Rate@3、Recall@3、MRR、nDCG@3 以及本地 P50/P95 微基准延迟。
 - 评测完全离线运行，不需要 API Key，也不会产生模型调用费用。
-- 修改检索算法时应同步扩充评测集，并保持或提高已提交的基线指标。
+- 当前冻结测试集结果：两种方案 Hit@3 均为 1.000；MRR 从 0.953 提升至 0.973，nDCG@3 从 0.965 提升至 0.980。
+- 这是合成数据上的离线对照评测，不是线上 A/B Test。完整结果、单条查询变化和边界见 [离线检索对照报告](docs/retrieval-evaluation.md)。
+- 修改检索算法时可以使用开发集调试，但不得根据冻结测试集逐题调整参数。
 
 主要文件 / Key files:
 
 ```text
 main.ts                         Plugin entry, settings, and commands
 src/services/AIService.ts       Retrieval and agentic tool-calling workflow
+src/services/retrieval/         Shared keyword and BM25 retrieval strategies
+src/evals/                      Frozen dataset, metrics, and comparison runner
 src/views/sidebar-view.ts       Sidebar and Ask AI interface
 src/managers/task-manager.ts    Vault-wide task management
 src/utils/search-parser.ts      Advanced search parser
@@ -217,7 +223,9 @@ styles.css                      Plugin styles
 
 - 仅支持 Markdown 笔记，不支持 PDF 高亮。
 - Tasks 标签默认关闭，需要在设置中手动启用。
-- 本地检索使用关键词相关性评分，不包含向量数据库或 embedding 索引。
+- 生产路径仍使用关键词相关性评分；BM25 当前作为经过离线评测的候选方案保留，尚未默认启用。
+- 离线评测使用合成数据，只能用于回归检查和方案初筛，不能代表真实大型仓库的线上效果。
+- 本地检索不包含向量数据库或 embedding 索引。
 - AI 服务必须兼容 OpenAI Chat Completions 请求格式。
 
 ## 致谢 / Credits
