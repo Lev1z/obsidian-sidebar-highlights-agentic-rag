@@ -95,7 +95,7 @@ get_note_content → 按需读取相关笔记
 
 ### 从源码构建 / Build from source
 
-要求 / Requirements: Node.js 18+、npm、Obsidian 1.8.10+。
+要求 / Requirements: Node.js 20+、npm、Obsidian 1.8.10+。
 
 ```bash
 git clone https://github.com/Lev1z/obsidian-sidebar-highlights-agentic-rag.git
