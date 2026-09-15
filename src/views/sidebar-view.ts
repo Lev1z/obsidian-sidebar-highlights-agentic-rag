@@ -4551,7 +4551,7 @@ export class HighlightsSidebarView extends ItemView {
             const modal = new CommentInputModal(
                 this.app,
                 defaultPrompt,
-                async (query, lengthMode, onStatus) => this.generateAIResponseForModal(highlight, query, lengthMode, onStatus),
+                async (query, lengthMode, onStatus, signal) => this.generateAIResponseForModal(highlight, query, lengthMode, onStatus, signal),
                 (value) => resolve(value),
                 () => resolve(null)
             );
@@ -4563,14 +4563,16 @@ export class HighlightsSidebarView extends ItemView {
         highlight: Highlight,
         query: string,
         lengthMode: 'short' | 'medium',
-        onStatus?: (status: AgentStatusUpdate) => void
+        onStatus?: (status: AgentStatusUpdate) => void,
+        signal?: AbortSignal
     ): Promise<AgentWorkflowResult> {
         const result = await this.plugin.getAIService().runAgenticWorkflow({
             selectedText: highlight.text,
             query,
             lengthMode,
             vault: this.plugin.app.vault,
-            onStatus
+            onStatus,
+            signal
         });
 
         return {
@@ -7776,7 +7778,8 @@ class CommentInputModal extends Modal {
     private onGenerate: (
         query: string,
         lengthMode: 'short' | 'medium',
-        onStatus?: (status: AgentStatusUpdate) => void
+        onStatus?: (status: AgentStatusUpdate) => void,
+        signal?: AbortSignal
     ) => Promise<AgentWorkflowResult>;
     private onSubmit: (value: string) => void;
     private onCancel: () => void;
@@ -7808,6 +7811,7 @@ class CommentInputModal extends Modal {
     private statusHistoryExpanded: boolean = false;
     private finalAnswerMarkdown = '';
     private markdownRenderComponent = new Component();
+    private generationAbortController: AbortController | null = null;
 
     constructor(
         app: App,
@@ -7815,7 +7819,8 @@ class CommentInputModal extends Modal {
         onGenerate: (
             query: string,
             lengthMode: 'short' | 'medium',
-            onStatus?: (status: AgentStatusUpdate) => void
+            onStatus?: (status: AgentStatusUpdate) => void,
+            signal?: AbortSignal
         ) => Promise<AgentWorkflowResult>,
         onSubmit: (value: string) => void,
         onCancel: () => void
@@ -7976,11 +7981,18 @@ class CommentInputModal extends Modal {
                 text: 'Starting agent workflow...'
             });
             updateAddButtonState();
+            this.generationAbortController?.abort();
+            const controller = new AbortController();
+            this.generationAbortController = controller;
 
             try {
                 const result = await this.onGenerate(query, this.currentLengthMode, (status) => {
                     this.pushStatusLog(status);
-                });
+                }, controller.signal);
+
+                if (controller.signal.aborted) {
+                    return;
+                }
 
                 this.finishAgentStatusRun();
 
@@ -7989,6 +8001,9 @@ class CommentInputModal extends Modal {
                 void this.renderAnswerMarkdown(finalQA);
                 this.renderDfsRecommendations(result.prerequisites);
             } catch (error) {
+                if ((error as { code?: string })?.code === 'aborted') {
+                    return;
+                }
                 console.error('Failed to generate AI response:', error);
                 const detail = error instanceof Error ? error.message : String(error);
                 this.pushStatusLog({
@@ -7999,8 +8014,11 @@ class CommentInputModal extends Modal {
                 this.finalAnswerMarkdown = `Generation failed: ${detail}`;
                 void this.renderAnswerMarkdown(this.finalAnswerMarkdown);
             } finally {
-                this.isGenerating = false;
-                updateAddButtonState();
+                if (this.generationAbortController === controller) {
+                    this.generationAbortController = null;
+                    this.isGenerating = false;
+                    updateAddButtonState();
+                }
             }
         };
 
@@ -8175,6 +8193,8 @@ class CommentInputModal extends Modal {
     }
 
     onClose() {
+        this.generationAbortController?.abort();
+        this.generationAbortController = null;
         this.markdownRenderComponent.unload();
         this.markdownRenderComponent = new Component();
         this.onAskAIFn = null;

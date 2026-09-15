@@ -1,6 +1,7 @@
 // {}做占位符，告诉LangChain模板长这个样
 import { TFile, Vault } from 'obsidian';
 import { PromptTemplate } from '@langchain/core/prompts';
+import { AIRequestError, OpenAICompatibleClient } from './OpenAICompatibleClient';
 
 export interface RetrievalResult {
     filePath: string;
@@ -20,6 +21,7 @@ export interface AgentWorkflowInput {
     vault: Vault;
     // onStatus：实时通讯管道
     onStatus?: (status: AgentStatusUpdate) => void;
+    signal?: AbortSignal;
 }
 
 export interface AgentWorkflowResult {
@@ -41,10 +43,13 @@ interface AIServiceConfig {
     baseUrl: string;
     maxFilesToScan?: number;
     topK?: number;
+    requestTimeoutMs?: number;
+    maxRetries?: number;
 }
 
 export class AIService {
     private config: AIServiceConfig;
+    private client: OpenAICompatibleClient;
 
     // 构造函数
     constructor(config: AIServiceConfig) {
@@ -54,6 +59,7 @@ export class AIService {
             maxFilesToScan: config.maxFilesToScan ?? 200, // ??：空值合并，没传参数就取右边值
             topK: config.topK ?? 6
         };
+        this.client = new OpenAICompatibleClient(this.config);
     }
 
     updateConfig(config: Partial<AIServiceConfig>): void {
@@ -61,6 +67,7 @@ export class AIService {
             ...this.config,
             ...config
         };
+        this.client.updateConfig(config);
     }
 
     hasApiKey(): boolean {
@@ -204,7 +211,8 @@ export class AIService {
                 userQuery,
                 input.lengthMode,
                 input.vault,
-                emit
+                emit,
+                input.signal
             );
 
             return {
@@ -214,6 +222,9 @@ export class AIService {
                 usedFallback: false
             };
         } catch (error) {
+            if (error instanceof AIRequestError && error.code === 'aborted') {
+                throw error;
+            }
             const message = error instanceof Error ? error.message : String(error);
             emit('observation', `Workflow error: ${message}. Falling back to local answer.`);
 
@@ -246,7 +257,8 @@ export class AIService {
         userQuery: string,
         lengthMode: 'short' | 'medium',
         vault: Vault,
-        emit: (phase: AgentStatusUpdate['phase'], text: string) => void
+        emit: (phase: AgentStatusUpdate['phase'], text: string) => void,
+        signal?: AbortSignal
     ): Promise<{ finalAnswer: string; prerequisites: string[]; retrievals: RetrievalResult[] }> {
         const retrievalMap = new Map<string, RetrievalResult>();
         const noteSnapshots = new Map<string, string>();
@@ -267,7 +279,8 @@ export class AIService {
 
             const raw = await this.callChatCompletionWithOptions(prompt, {
                 systemPrompt: this.buildUniversalAgentSystemPrompt(),
-                temperature: 0.2
+                temperature: 0.2,
+                signal
             });
             const decision = this.parseToolDecision(raw);
 
@@ -989,43 +1002,9 @@ export class AIService {
 
     private async callChatCompletionWithOptions(
         prompt: string,
-        options?: { systemPrompt?: string; temperature?: number }
+        options?: { systemPrompt?: string; temperature?: number; signal?: AbortSignal }
     ): Promise<string> {
-        const baseUrl = this.config.baseUrl.replace(/\/$/, '');
-        const endpoint = `${baseUrl}/chat/completions`;
-        const systemPrompt = options?.systemPrompt ?? '你是 Obsidian 笔记助手。输出简洁、结构清晰。';
-        const temperature = options?.temperature ?? 0.2;
-
-        // fetch()：从网站中拿/发数据
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.config.apiKey}`
-            },
-            body: JSON.stringify({
-                model: this.config.model,
-                temperature,
-                messages: [
-                    {
-                        role: 'system',
-                        content: systemPrompt
-                    },
-                    {
-                        role: 'user',
-                        content: prompt
-                    }
-                ]
-            })
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(`Chat completion failed (${response.status}): ${errText}`);
-        }
-
-        const data = await response.json();
-        return data?.choices?.[0]?.message?.content ?? '';
+        return this.client.createChatCompletion(prompt, options);
     }
 
     private async dfsTool(
