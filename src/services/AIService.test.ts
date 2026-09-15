@@ -73,4 +73,38 @@ describe('AIService', () => {
             usedFallback: false
         });
     });
+
+    it('keeps excluded files out of local retrieval', async () => {
+        const vault = createVault({
+            'private/secret.md': '# Secret Project\nconfidential launch plan',
+            'public/overview.md': '# Project Overview\npublic launch plan'
+        });
+        const service = new AIService({
+            apiKey: '',
+            model: 'model',
+            baseUrl: 'https://example.com/v1',
+            fileFilters: [{ path: 'private', mode: 'exclude' }]
+        });
+
+        const results = await service.searchNotes('launch plan', vault as never);
+
+        expect(results.map(result => result.filePath)).toEqual(['public/overview.md']);
+    });
+
+    it('keeps Excalidraw Markdown out of retrieval when configured', async () => {
+        const vault = createVault({
+            'diagram.excalidraw.md': '# Architecture Diagram\nagent retrieval architecture',
+            'architecture.md': '# Architecture\nagent retrieval architecture'
+        });
+        const service = new AIService({
+            apiKey: '',
+            model: 'model',
+            baseUrl: 'https://example.com/v1',
+            excludeExcalidraw: true
+        });
+
+        const results = await service.searchNotes('agent retrieval architecture', vault as never);
+
+        expect(results.map(result => result.filePath)).toEqual(['architecture.md']);
+    });
 });

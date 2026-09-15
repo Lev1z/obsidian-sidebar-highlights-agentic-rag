@@ -1,6 +1,7 @@
 import { App, TFile, Vault, moment } from 'obsidian';
 import { Task } from '../../main';
 import type HighlightCommentsPlugin from '../../main';
+import { isPathExcludedByFilters } from '../utils/file-filter';
 
 export class TaskManager {
     private app: App;
@@ -40,58 +41,7 @@ export class TaskManager {
      * Check if a file path is in the excluded files list
      */
     private isFileExcluded(filePath: string): boolean {
-        const filters = this.plugin.settings.fileFilters;
-
-        if (!filters || filters.length === 0) {
-            return false; // No filters = process all files
-        }
-
-        const normalizedFilePath = filePath.replace(/\\/g, '/');
-
-        // Check each filter - each has its own mode
-        let hasIncludeFilters = false;
-        let matchesIncludeFilter = false;
-        let matchesExcludeFilter = false;
-
-        for (const filter of filters) {
-            const normalizedFilterPath = filter.path.replace(/\\/g, '/');
-
-            // Check if file matches this filter
-            const matches =
-                normalizedFilePath === normalizedFilterPath ||
-                normalizedFilePath.startsWith(normalizedFilterPath + '/');
-
-            if (matches) {
-                if (filter.mode === 'include') {
-                    matchesIncludeFilter = true;
-                } else {
-                    matchesExcludeFilter = true;
-                }
-            }
-
-            if (filter.mode === 'include') {
-                hasIncludeFilters = true;
-            }
-        }
-
-        // KEY FIX: If file matches an include filter, it should NOT be excluded
-        // (even if it also matches an exclude filter)
-        // This allows more specific include filters to override broader exclude filters
-        if (matchesIncludeFilter) {
-            return false;
-        }
-
-        // If there are any include filters, file must match at least one to be processed
-        if (hasIncludeFilters && !matchesIncludeFilter) {
-            return true; // Excluded because not in any include filter
-        }
-
-        // If file matches an exclude filter, it's excluded
-        if (matchesExcludeFilter) {
-            return true;
-        }
-
-        return false;
+        return isPathExcludedByFilters(filePath, this.plugin.settings.fileFilters);
     }
 
     /**

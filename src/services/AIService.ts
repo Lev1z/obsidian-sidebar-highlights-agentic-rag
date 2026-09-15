@@ -2,6 +2,7 @@
 import { TFile, Vault } from 'obsidian';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { AIRequestError, OpenAICompatibleClient } from './OpenAICompatibleClient';
+import { FileFilterRule, isExcludedMarkdownPath } from '../utils/file-filter';
 
 export interface RetrievalResult {
     filePath: string;
@@ -45,6 +46,8 @@ interface AIServiceConfig {
     topK?: number;
     requestTimeoutMs?: number;
     maxRetries?: number;
+    fileFilters?: FileFilterRule[];
+    excludeExcalidraw?: boolean;
 }
 
 export class AIService {
@@ -57,7 +60,9 @@ export class AIService {
             // ...展开运算符，快速创建新对象，保留config的所有内容
             ...config,
             maxFilesToScan: config.maxFilesToScan ?? 200, // ??：空值合并，没传参数就取右边值
-            topK: config.topK ?? 6
+            topK: config.topK ?? 6,
+            fileFilters: config.fileFilters ?? [],
+            excludeExcalidraw: config.excludeExcalidraw ?? true
         };
         this.client = new OpenAICompatibleClient(this.config);
     }
@@ -566,6 +571,15 @@ export class AIService {
             };
         }
 
+        if (this.isFileExcluded(requestedPath)) {
+            return {
+                ok: false,
+                path: requestedPath,
+                content: '',
+                message: `笔记被文件过滤规则排除: ${requestedPath}`
+            };
+        }
+
         const abstractFile = vault.getAbstractFileByPath(requestedPath);
         if (!(abstractFile instanceof TFile)) {
             return {
@@ -774,7 +788,7 @@ export class AIService {
         vault: Vault,
         options?: { maxFilesToScan?: number; topK?: number }
     ): Promise<RetrievalResult[]> {
-        const markdownFiles = vault.getMarkdownFiles();
+        const markdownFiles = vault.getMarkdownFiles().filter(file => !this.isFileExcluded(file.path));
         const maxFilesToScan = options?.maxFilesToScan ?? this.config.maxFilesToScan;
         const topK = options?.topK ?? this.config.topK;
         const filesToScan = markdownFiles.slice(0, maxFilesToScan);
@@ -795,6 +809,14 @@ export class AIService {
 
         results.sort((a, b) => b.score - a.score);
         return results.slice(0, topK);
+    }
+
+    private isFileExcluded(filePath: string): boolean {
+        return isExcludedMarkdownPath(
+            filePath,
+            this.config.fileFilters,
+            this.config.excludeExcalidraw
+        );
     }
 
     private async vaultSearchTool(
