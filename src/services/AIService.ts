@@ -3,12 +3,10 @@ import { TFile, Vault } from 'obsidian';
 import { PromptTemplate } from '@langchain/core/prompts';
 import { AIRequestError, OpenAICompatibleClient } from './OpenAICompatibleClient';
 import { FileFilterRule, isExcludedMarkdownPath } from '../utils/file-filter';
+import { keywordRetrievalStrategy, tokenizeKeywordText } from './retrieval/keyword-retrieval';
+import { RetrievalDocument, RetrievalResult } from './retrieval/retrieval-types';
 
-export interface RetrievalResult {
-    filePath: string;
-    snippet: string;
-    score: number;
-}
+export type { RetrievalResult } from './retrieval/retrieval-types';
 
 export interface AgentStatusUpdate {
     phase: 'thought' | 'action' | 'observation';
@@ -789,26 +787,23 @@ export class AIService {
         options?: { maxFilesToScan?: number; topK?: number }
     ): Promise<RetrievalResult[]> {
         const markdownFiles = vault.getMarkdownFiles().filter(file => !this.isFileExcluded(file.path));
-        const maxFilesToScan = options?.maxFilesToScan ?? this.config.maxFilesToScan;
-        const topK = options?.topK ?? this.config.topK;
+        const maxFilesToScan = options?.maxFilesToScan ?? this.config.maxFilesToScan ?? 200;
+        const topK = options?.topK ?? this.config.topK ?? 6;
         const filesToScan = markdownFiles.slice(0, maxFilesToScan);
-        const queryTokens = this.tokenize(query);
-
-        const results: RetrievalResult[] = [];
+        const documents: RetrievalDocument[] = [];
 
         for (const file of filesToScan) {
             try {
-                const fileResult = await this.scoreFile(file, query, queryTokens, vault);
-                if (fileResult) {
-                    results.push(fileResult);
-                }
+                documents.push({
+                    filePath: file.path,
+                    content: await vault.cachedRead(file)
+                });
             } catch (error) {
                 console.warn(`AIService.retrieveRelevantContext skipped file: ${file.path}`, error);
             }
         }
 
-        results.sort((a, b) => b.score - a.score);
-        return results.slice(0, topK);
+        return keywordRetrievalStrategy.rank(query, documents, { topK });
     }
 
     private isFileExcluded(filePath: string): boolean {
@@ -827,175 +822,6 @@ export class AIService {
         return this.retrieveRelevantContext(query, vault, options);
     }
 
-    private async scoreFile(file: TFile, query: string, queryTokens: string[], vault: Vault): Promise<RetrievalResult | null> {
-        const content = (await vault.cachedRead(file)).replace(/\r\n/g, '\n');
-        if (!content.trim()) {
-            return null;
-        }
-
-        const lowerContent = content.toLowerCase();
-        const lowerQuery = query.toLowerCase();
-        const headingLines = this.extractHeadingLines(content);
-        const headingText = headingLines.join(' \n ').toLowerCase();
-        const headingTokens = this.tokenize(headingText);
-        const bodyTokens = this.tokenize(lowerContent, 400);
-
-        let score = 0;
-
-        // Phrase match bonuses with heading priority.
-        if (headingText.includes(lowerQuery)) {
-            score += 12;
-        }
-        if (lowerContent.includes(lowerQuery)) {
-            score += 7;
-        }
-
-        // Token overlap score with stronger heading weight.
-        for (const token of queryTokens) {
-            if (!token) continue;
-            const headingOccurrences = this.countOccurrences(headingText, token);
-            if (headingOccurrences > 0) {
-                score += Math.min(headingOccurrences, 3) * 3;
-            }
-
-            const occurrences = this.countOccurrences(lowerContent, token);
-            if (occurrences > 0) {
-                score += Math.min(occurrences, 4);
-            }
-
-            // Simple fuzzy score to absorb minor token noise/typos.
-            const fuzzyHeading = this.bestFuzzySimilarity(token, headingTokens);
-            if (fuzzyHeading >= 0.82) {
-                score += 2.5;
-                continue;
-            }
-
-            const fuzzyBody = this.bestFuzzySimilarity(token, bodyTokens);
-            if (fuzzyBody >= 0.78) {
-                score += 1.2;
-            }
-        }
-
-        if (score < 2) {
-            return null;
-        }
-
-        const snippet = this.extractSnippet(content, lowerQuery, queryTokens);
-        return {
-            filePath: file.path,
-            snippet,
-            score
-        };
-    }
-
-    private extractHeadingLines(content: string): string[] {
-        return content
-            .split('\n')
-            .map(line => line.trim())
-            .filter(line => /^#{1,2}\s+/.test(line))
-            .slice(0, 20)
-            .map(line => line.replace(/^#{1,2}\s+/, '').trim());
-    }
-
-    private bestFuzzySimilarity(token: string, candidates: string[]): number {
-        if (!token || candidates.length === 0) {
-            return 0;
-        }
-
-        let best = 0;
-        for (const candidate of candidates) {
-            if (!candidate || candidate.length < 2) continue;
-            const sim = this.diceCoefficient(token, candidate);
-            if (sim > best) {
-                best = sim;
-            }
-            if (best >= 0.95) {
-                break;
-            }
-        }
-
-        return best;
-    }
-
-    private diceCoefficient(a: string, b: string): number {
-        if (a === b) {
-            return 1;
-        }
-
-        if (!a || !b) {
-            return 0;
-        }
-
-        if (a.length < 2 || b.length < 2) {
-            return a === b ? 1 : 0;
-        }
-
-        const bgA = this.buildBigrams(a);
-        const bgB = this.buildBigrams(b);
-
-        if (bgA.length === 0 || bgB.length === 0) {
-            return 0;
-        }
-
-        const used = new Array<boolean>(bgB.length).fill(false);
-        let overlap = 0;
-        for (const itemA of bgA) {
-            for (let i = 0; i < bgB.length; i++) {
-                if (used[i]) continue;
-                if (itemA === bgB[i]) {
-                    overlap++;
-                    used[i] = true;
-                    break;
-                }
-            }
-        }
-
-        return (2 * overlap) / (bgA.length + bgB.length);
-    }
-
-    private buildBigrams(text: string): string[] {
-        const source = text.trim();
-        const result: string[] = [];
-        for (let i = 0; i < source.length - 1; i++) {
-            result.push(source.slice(i, i + 2));
-        }
-        return result;
-    }
-
-    private extractSnippet(content: string, lowerQuery: string, queryTokens: string[]): string {
-        const lines = content.split('\n');
-        let bestLineIndex = -1;
-        let bestLineScore = -1;
-
-        for (let i = 0; i < lines.length; i++) {
-            const lineLower = lines[i].toLowerCase();
-            let lineScore = 0;
-
-            if (lineLower.includes(lowerQuery)) {
-                lineScore += 5;
-            }
-
-            for (const token of queryTokens) {
-                if (token && lineLower.includes(token)) {
-                    lineScore += 1;
-                }
-            }
-
-            if (lineScore > bestLineScore) {
-                bestLineScore = lineScore;
-                bestLineIndex = i;
-            }
-        }
-
-        if (bestLineIndex === -1) {
-            return lines.slice(0, 6).join('\n').slice(0, 500);
-        }
-
-        const start = Math.max(0, bestLineIndex - 2);
-        const end = Math.min(lines.length, bestLineIndex + 3);
-        return lines.slice(start, end).join('\n').slice(0, 600);
-    }
-
     private formatContext(results: RetrievalResult[]): string {
         if (results.length === 0) {
             return '未检索到相关上下文。';
@@ -1012,26 +838,7 @@ export class AIService {
     }
 
     private tokenize(text: string, limit = 16): string[] {
-        return text
-            .toLowerCase()
-            .split(/[^a-z0-9\u4e00-\u9fff]+/)
-            .map(token => token.trim())
-            .filter(token => token.length >= 2)
-            .slice(0, limit);
-    }
-
-    private countOccurrences(text: string, token: string): number {
-        let count = 0;
-        let fromIndex = 0;
-
-        while (true) {
-            const idx = text.indexOf(token, fromIndex);
-            if (idx === -1) break;
-            count++;
-            fromIndex = idx + token.length;
-        }
-
-        return count;
+        return tokenizeKeywordText(text, limit);
     }
 
     private async callChatCompletion(prompt: string): Promise<string> {
