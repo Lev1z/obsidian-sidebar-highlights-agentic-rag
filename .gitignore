@@ -29,6 +29,7 @@ CHECKLIST.md
 # Testing and backups
 TESTING.md
 backups/
+coverage/
 test-*.js
 
 # Local hot-reload marker (not for distribution)

@@ -75,7 +75,8 @@ export class OpenAICompatibleClient {
             ]
         });
 
-        for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
+        let attempt = 0;
+        while (true) {
             const response = await this.fetchWithTimeout(endpoint, requestBody, options.signal);
 
             if (response.ok) {
@@ -85,6 +86,7 @@ export class OpenAICompatibleClient {
             const retryable = this.isRetryableStatus(response.status);
             if (retryable && attempt < this.config.maxRetries) {
                 await this.delay(this.getRetryDelayMs(response, attempt), options.signal);
+                attempt++;
                 continue;
             }
 
@@ -97,8 +99,6 @@ export class OpenAICompatibleClient {
                 retryable
             );
         }
-
-        throw new AIRequestError('Chat completion failed after retries.', 'network_error', undefined, true);
     }
 
     private normalizeConfig(config: OpenAICompatibleClientConfig): Required<Omit<OpenAICompatibleClientConfig, 'fetchImpl'>> {

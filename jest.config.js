@@ -10,6 +10,20 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/**/*.test.ts'
   ],
+  coverageThreshold: {
+    './src/services/OpenAICompatibleClient.ts': {
+      branches: 75,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    './src/evals/retrieval-metrics.ts': {
+      branches: 90,
+      functions: 100,
+      lines: 100,
+      statements: 100
+    }
+  },
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {

@@ -77,6 +77,22 @@ export class AIService {
         return !!this.config.apiKey?.trim();
     }
 
+    /**
+     * Run the same local retrieval used by the agent without calling a model.
+     * This public boundary keeps evaluation and regression tests deterministic.
+     */
+    async searchNotes(
+        query: string,
+        vault: Vault,
+        options?: { maxFilesToScan?: number; topK?: number }
+    ): Promise<RetrievalResult[]> {
+        const normalizedQuery = query.trim();
+        if (!normalizedQuery) {
+            return [];
+        }
+        return this.retrieveRelevantContext(normalizedQuery, vault, options);
+    }
+
     // async异步处理，Promise保证返回符合<此格式>的结果
     async checkConnection(): Promise<AIConnectionCheckResult> {
         if (!this.hasApiKey()) {

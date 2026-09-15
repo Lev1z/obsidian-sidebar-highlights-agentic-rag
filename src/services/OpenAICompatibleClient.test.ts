@@ -158,4 +158,72 @@ describe('OpenAICompatibleClient', () => {
         await expect(client.createChatCompletion('question')).rejects.toMatchObject({ code: 'invalid_config' });
         expect(fetchImpl).not.toHaveBeenCalled();
     });
+
+    it.each([
+        ['', 'AI Base URL is empty'],
+        ['not a URL', 'AI Base URL is invalid'],
+        ['https://example.com/v1', 'AI model name is empty']
+    ])('rejects invalid configuration: %s', async (baseUrl, expectedMessage) => {
+        const fetchImpl = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>();
+        const client = createClient(fetchImpl, {
+            baseUrl,
+            model: expectedMessage.includes('model') ? ' ' : 'model'
+        });
+
+        await expect(client.createChatCompletion('question')).rejects.toThrow(expectedMessage);
+        expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it('applies updated endpoint, model, and transport configuration', async () => {
+        const originalFetch = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>();
+        const updatedFetch = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>()
+            .mockResolvedValue(response({ choices: [{ message: { content: 'updated' } }] }));
+        const client = createClient(originalFetch);
+        client.updateConfig({
+            baseUrl: 'https://updated.example/v2',
+            model: 'updated-model',
+            fetchImpl: updatedFetch
+        });
+
+        await expect(client.createChatCompletion('question')).resolves.toBe('updated');
+        expect(originalFetch).not.toHaveBeenCalled();
+        expect(updatedFetch).toHaveBeenCalledWith(
+            'https://updated.example/v2/chat/completions',
+            expect.objectContaining({ body: expect.stringContaining('updated-model') })
+        );
+    });
+
+    it('classifies transport failures as retryable network errors', async () => {
+        const fetchImpl = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>()
+            .mockRejectedValue(new Error('offline'));
+        const client = createClient(fetchImpl);
+
+        await expect(client.createChatCompletion('question')).rejects.toMatchObject({
+            code: 'network_error',
+            retryable: true
+        });
+    });
+
+    it('supports HTTP-date Retry-After values', async () => {
+        const fetchImpl = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>()
+            .mockResolvedValueOnce(response('retry', 429, { 'retry-after': new Date().toUTCString() }))
+            .mockResolvedValueOnce(response({ choices: [{ message: { content: 'ok' } }] }));
+        const client = createClient(fetchImpl, { maxRetries: 1 });
+
+        await expect(client.createChatCompletion('question')).resolves.toBe('ok');
+        expect(fetchImpl).toHaveBeenCalledTimes(2);
+    });
+
+    it('cancels while waiting to retry', async () => {
+        const fetchImpl = jest.fn<ReturnType<FetchLike>, Parameters<FetchLike>>()
+            .mockResolvedValue(response('retry', 429));
+        const controller = new AbortController();
+        const client = createClient(fetchImpl, { maxRetries: 1, retryBaseDelayMs: 1000 });
+        const pending = client.createChatCompletion('question', { signal: controller.signal });
+        await Promise.resolve();
+        controller.abort();
+
+        await expect(pending).rejects.toMatchObject({ code: 'aborted' });
+        expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
 });

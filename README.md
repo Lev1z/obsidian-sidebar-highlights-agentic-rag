@@ -190,7 +190,16 @@ npm install
 npm run dev      # watch mode
 npm run build    # type-check + production bundle
 npm test         # Jest test suite
+npm run test:coverage   # coverage report + critical-file gates
+npm run eval:retrieval  # deterministic local retrieval benchmark
 ```
+
+### 质量基线 / Quality baseline
+
+- CI 在每次推送到 `main` 和每个 Pull Request 上执行生产构建、全部测试及关键文件覆盖率门禁。
+- `npm run eval:retrieval` 使用固定 Markdown 知识库和标注查询计算 Hit Rate@3、Recall@3 与 MRR。
+- 评测完全离线运行，不需要 API Key，也不会产生模型调用费用。
+- 修改检索算法时应同步扩充评测集，并保持或提高已提交的基线指标。
 
 主要文件 / Key files:
 
